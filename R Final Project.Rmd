@@ -1,0 +1,457 @@
+---
+title: "R Final Project"
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      version: 4
+      bg: "#ffffff"
+      fg: "#000000"
+      primary: "#EA80FC"
+      secondary: "#00DAC6"
+      base_font:
+        google: Prompt
+      heading_font:
+        google: Proza Libre
+---
+
+```{r setup, include=FALSE}
+if (requireNamespace("thematic")) 
+  thematic::thematic_rmd(font = "auto")
+```
+
+
+## Overview
+The Student Social Media & Relationships dataset contains anonymized records of students’ social‐media behaviors and related life outcomes. It spans multiple countries and academic levels, focusing on key dimensions such as usage intensity, platform preferences, and relationship dynamics. Each row represents one student’s survey response, offering a cross‐sectional snapshot suitable for statistical analysis and machine‐learning applications.
+
+## Scope & Coverage
+Population: Students aged 18–24 enrolled in high school, undergraduate, or graduate programs.
+
+Geography: Multi‐country coverage (e.g., Bangladesh, India, USA, UK, Canada, Australia, Germany, Brazil, Japan, South Korea).
+
+
+## Column Descriptions
+*Student_ID*
+A unique integer identifier assigned to each survey respondent to enable de-duplication and track individual records without revealing personal information.
+
+*Age*
+The student’s age in completed years at the time of the survey, used to segment analysis by age group and control for developmental differences.
+
+*Gender*
+The student’s self-reported gender, recorded as “Male” or “Female” to allow for demographic breakdowns in usage and outcome measures.
+
+*Academic_Level*
+The highest level of education the respondent is currently enrolled in, with categories: “High School,” “Undergraduate,” or “Graduate,” facilitating stratified analyses by academic stage.
+
+*Country*
+The country of residence where the student completed the survey, enabling cross-country comparisons of social media behaviors and impacts.
+
+*Avg_Daily_Usage_Hours*
+The average number of hours per day the student spends on social media platforms, calculated from self-reported weekday and weekend usage estimates.
+
+*Most_Used_Platform*
+The social media platform on which the student spends the most time (e.g., Instagram, Facebook, TikTok), used to examine platform-specific effects.
+
+*Affects_Academic_Performance*
+A binary indicator (“Yes”/“No”) reflecting whether the student perceives their social media use as having a negative impact on their academic performance.
+
+*Sleep_Hours_Per_Night*
+The respondent’s average nightly sleep duration in hours, provided to investigate correlations between screen time and sleep quality/quantity.
+
+*Mental_Health_Score*
+A self-rated integer from 1 (poor) to 10 (excellent) indicating overall mental well-being, allowing assessment of potential associations with social media habits.
+
+*Relationship_Status*
+The student’s current romantic relationship status, categorized as “Single,” “In Relationship,” or “Complicated,” to explore social media’s impact on interpersonal dynamics.
+
+*Conflicts_Over_Social_Media*
+The number of arguments or disagreements the student reports having had with family, friends, or partners due to their social media use, serving as a proxy for social friction.
+
+*Addicted_Score*
+A composite score from 1 (low addiction) to 10 (high addiction) based on a standardized survey scale (e.g., Bergen Social Media Addiction Scale), quantifying the degree of problematic usage.
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r} 
+students <- read.csv("C:/Users/asroka/OneDrive - Adobe/Desktop/Anna/MTech/R/Final Project/Students Social Media Addiction.csv")
+```
+
+```{r} 
+head(students)
+```
+
+## *ANALYSIS* {.tabset .tabset-pills}
+
+
+### Data Cleaning
+
+Checking for missing values:
+
+```{r}
+colSums(is.na(students))
+```
+We have no missing values in our dataset. Next step is checking the data types.
+ 
+```{r}
+str(students)
+```
+Let's see if we have any duplications.
+```{r}
+sum(duplicated(students))
+```
+Our dataset does not have duplicated values.
+
+### Data manipulation
+
+Let's apply some filters to check how many males and females from the USA spend more than 6 hours a day on social media. 6 hours represents 25% of the whole day.
+```{r}
+filter(students, Gender == "Male", Country == "USA", Avg_Daily_Usage_Hours >= 6)
+```
+Now, we will apply the same criteria for females.
+```{r}
+filter(students, Gender == "Female", Country == "USA", Avg_Daily_Usage_Hours >= 6)
+```
+We have 32 females from the USA that spend more than 6 hours on their social media, whereas none of males. This is an interesting result and we will dive deeper into analysis later on.
+
+We will now calculate percentage of average daily usage and percentage of sleep at night. To do so, we will use mutate function.
+
+```{r}
+mutate(students, perc_daily_usage = round(Avg_Daily_Usage_Hours /  24*100,0), perc_sleep = round(Sleep_Hours_Per_Night / 24 *100,0)
+)
+```
+Next step is to add categories for addiction level and sleep hours.
+```{r}
+addiction_description <- students %>%
+mutate(addiction_category = case_when(
+  Avg_Daily_Usage_Hours < 2 ~ "Low risk addiction",
+  Avg_Daily_Usage_Hours >= 2 & Avg_Daily_Usage_Hours < 4 ~ "Moderate risk addiction",
+  Avg_Daily_Usage_Hours >= 4 ~ "High risk addiction",
+  TRUE ~ NA_character_
+))
+```
+```{r}
+sleep_description <- students %>%
+mutate(sleep_category = case_when(
+  Sleep_Hours_Per_Night < 5 ~ "Poor (<5h)",
+  Sleep_Hours_Per_Night >= 5 & Sleep_Hours_Per_Night < 7 ~ "Fair (7-9h)",
+  Sleep_Hours_Per_Night >= 4 ~ "Good (9h+)",
+  TRUE ~ NA_character_
+))
+```
+Let's provide some summaries and check the findings.
+```{r}
+platform_usage <- group_by(students,Most_Used_Platform)
+summarise(
+  platform_usage,
+  Female = round(mean(Avg_Daily_Usage_Hours[Gender == "Female"],na.rm = TRUE), 2),
+  Male = round(mean(Avg_Daily_Usage_Hours[Gender == "Male"],na.rm = TRUE), 2)
+)
+```
+We can observe that average daily usage on each platform is higher for females. There are only two platforms, YouTube and VKontakte, that are not used by females. In general women spend a lot more time on social media than men. 
+
+### Statistical Analysis
+
+Summary for Students' age column.
+```{r}
+summary(students$Age)
+```
+Summary for Students' average daily usage hours column.
+```{r}
+summary(students$Avg_Daily_Usage_Hours )
+```
+Summary for Students' sleep hours per night column.
+```{r}
+summary(students$Sleep_Hours_Per_Night)
+```
+Summary for Students' mental health score column.
+```{r}
+summary( students$Mental_Health_Score)
+```
+
+```{r}
+summary(students[, c("Age", "Avg_Daily_Usage_Hours", "Sleep_Hours_Per_Night", "Mental_Health_Score")])
+```
+Let's calculate T-test comparing addiction scores between genders, meaning testing whether the mean Addicted_Score differs between Female and Male students.
+```{r}
+t.test(Addicted_Score ~ Gender, data = students)
+```
+✅ Conclusion:
+
+*p-value = 0.1875* is greater than 0.05, so we fail to reject the null hypothesis.
+
+This means there is no statistically significant difference in Addicted_Score between females and males in your data.
+
+The confidence interval includes 0, which also supports no significant difference. There’s not enough evidence to say that female and male students differ in their average Addicted_Score in this dataset.
+
+Now, we will calculate correlations between key variables.
+```{r}
+corr_a <- lm(Avg_Daily_Usage_Hours ~ Addicted_Score, data = students)
+
+```
+
+```{r}
+summary(corr_a)
+```
+
+Correlation Analysis:
+
+**Usage Hours vs Addiction Score:** 
+
+✅ Interpretation of Coefficients:
+
+*Intercept = 0.676*	When Addicted_Score is 0, the predicted average daily usage is 0.676 hours.
+
+*Addicted_Score = 0.659*	For every 1-point increase in Addicted_Score, Avg_Daily_Usage_Hours increases by 0.659 hours, on average. This is a positive linear relationship.
+
+*p-values (< 2e-16)*	Both the intercept and slope are highly statistically significant, indicating the relationship is not due to random chance.
+
+📊 Metric	Interpretation
+*Multiple R-squared = 0.6922*	The model explains 69.2% of the variance in average daily usage. This is very strong for social science data.
+
+*Adjusted R-squared = 0.6918*	Adjusted for number of predictors — still high.
+
+*Residual standard error = 0.6981*	Average size of prediction errors is about 0.70 hours.
+
+*F-statistic = 1581, p < 2.2e-16*	The overall regression model is statistically significant.
+
+🔍 There is a strong, statistically significant positive relationship between Addicted_Score and Avg_Daily_Usage_Hours. Higher addiction scores are strongly associated with more screen time per day.
+```{r}
+ggplot(students, aes(x = Addicted_Score, y = Avg_Daily_Usage_Hours)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Linear Regression: Usage Hours vs. Addiction Score",
+       x = "Addicted Score",
+       y = "Average Daily Usage (Hours)")
+```
+
+
+```{r}
+corr_b <- lm(Avg_Daily_Usage_Hours ~ Sleep_Hours_Per_Night, data = students)
+
+summary(corr_b)
+```
+**Usage Hours vs Sleep Hours:**
+
+✅ Interpretation of Coefficients:
+
+
+*Intercept	10.978*	If a student gets 0 hours of sleep, their predicted screen time is 10.98 hours/day. (This is a theoretical value, not practically meaningful.)
+
+*Sleep_Hours_Per_Night	-0.882*	For each additional hour of sleep, the average screen usage decreases by 0.88 hours/day. This shows a strong negative linear relationship.
+
+*p-values (< 2e-16)*	The relationship is highly statistically significant. The probability this happened by chance is nearly 0.	
+
+📊 Model Fit Metrics:
+
+*Multiple R-squared = 0.625*	About 62.5% of the variation in screen usage is explained by sleep duration. That’s strong for behavioral data.
+
+*Residual standard error = 0.7705*	On average, predictions deviate from the actual values by about 0.77 hours/day.
+
+*F-statistic = 1172, p < 2.2e-16*	The model is statistically significant overall.
+
+🔍 Students who sleep more tend to spend less time on screens per day. The relationship is strong, negative, and statistically significant.
+```{r}
+ggplot(students, aes(x = Sleep_Hours_Per_Night, y = Avg_Daily_Usage_Hours)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Linear Regression: Usage Hours vs. Sleep Hours",
+       x = "Sleep hours per night",
+       y = "Average Daily Usage (Hours)")
+```
+```{r}
+corr_c <- lm(Avg_Daily_Usage_Hours ~ Mental_Health_Score, data = students)
+
+summary(corr_c)
+```
+
+**Usage Hours vs Mental Health:**
+
+✅ Interpretation of Coefficients:
+*Intercept 10.59* This means when Mental_Health_Score = 0, the expected average daily usage is 10.59 hours.
+
+*Mental_Health_Score Coefficient = -0.91149* For every 1 unit increase in mental health score, the average daily social media usage decreases by ~0.91 hours, holding other factors constant.
+
+The negative sign suggests an inverse relationship — better mental health (higher score) is associated with less social media use.
+
+*p-value < 2e-16* → extremely small. This coefficient is highly statistically significant, meaning the relationship is almost certainly not due to chance.
+
+📊 Model Fit Metrics:
+
+*R-squared = 0.6417* About 64.2% of the variability in Avg_Daily_Usage_Hours is explained by Mental_Health_Score. This is a strong R² value for social/behavioral data.
+
+*Residual Standard Error = 0.7532* On average, the model’s predictions are off by ~0.75 hours.
+
+🔍 There is a strong, statistically significant negative correlation between mental health scores and average daily social media usage. Specifically, individuals with higher mental health scores tend to use social media significantly less, and the model explains about 64% of the variation in usage.
+
+```{r}
+ggplot(students, aes(x = Mental_Health_Score, y = Avg_Daily_Usage_Hours)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Linear Regression: Usage Hours vs. Mental Health",
+       x = "Mental health score",
+       y = "Average Daily Usage (Hours)")
+```
+
+
+### Data Visualization
+
+```{r}
+ggplot(data = students, aes(x = Avg_Daily_Usage_Hours)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 20, fill = "#69b3a2", color = "black", alpha = 0.7) +
+  geom_density(color = "blue", linewidth = 1) +
+  geom_vline(aes(xintercept = mean(Avg_Daily_Usage_Hours, na.rm = TRUE)),
+             color = "red", linetype = "dashed") +
+  labs(
+    title = "Average Daily Social Media Usage Hours",
+    x = "Hours",
+    y = "Density"
+  ) +
+  theme_minimal()
+```
+
+Average daily hours on the social media platforms is 4.92.
+```{r}
+round(mean(students$Avg_Daily_Usage_Hours),2)
+```
+
+
+
+```{r}
+ggplot(data = students, aes(x = Age, y = Avg_Daily_Usage_Hours, fill = Gender)) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  labs(title = "Daily Social Media Usage by Age and Gender", 
+       x = "Age",
+       y = "Avg Daily Usage (Hours)") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(data = students, aes(x = Gender, fill = Relationship_Status)) +
+  geom_bar(position = position_dodge(width = 0.9)) +
+  geom_text(stat = "count",
+            aes(label = after_stat(count), group = Relationship_Status),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3) +
+  labs(title = "Gender Distribution and Relationship Status",
+       x = "Gender",
+       y = "Count") +
+  theme_minimal()
+```
+
+
+
+```{r}
+filtered_data <- students %>%
+  mutate(Most_Used_Platform = factor(Most_Used_Platform,
+                                     levels = names(sort(table(Most_Used_Platform), decreasing = TRUE))))
+
+ggplot(data = filtered_data) +
+  geom_bar(mapping = aes(x = Most_Used_Platform, fill = Most_Used_Platform)) +
+  scale_fill_manual(values = rainbow(length(unique(filtered_data$Most_Used_Platform)))) +
+  geom_text(
+    stat = "count",
+    aes(x = Most_Used_Platform, label = after_stat(count)),
+    position = position_dodge(width = 0.9),
+    vjust = -0.3
+  ) +
+  labs(
+    title = "Most Used Social Media Platforms",
+    x = "Platform",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+  legend.position = "none",
+  axis.text.x = element_text(size = 7),
+  axis.text.y = element_text(size = 7),
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)))
+```
+
+```{r}
+sleep_description$sleep_category <- factor(
+  sleep_description$sleep_category,
+  levels = c("Poor (<5h)", "Fair (7-9h)", "Good (9h+)")
+)
+```
+
+```{r}
+ggplot(data = sleep_description) +
+  geom_boxplot(
+    mapping = aes(x = sleep_category, y = Addicted_Score),
+    fill = "#69b3a2",  
+    color = "black"     
+  ) +
+  labs(
+    title = "Social Media Addiction Score by Sleep Quality",
+    x = "Sleep Category",
+    y = "Addiction Score (0–10)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.7),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+  )
+```
+ 
+```{r}
+ggplot(data = students) +
+  geom_boxplot(
+    mapping = aes(x = Academic_Level, y = Addicted_Score),
+    fill = "#69b3a2",  
+    color = "black"     
+  ) +
+  labs(
+    title = "Social Media Addiction Score by Academic Level",
+    x = "Academic Level",
+    y = "Addiction Score (0–10)"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.7),
+    axis.title = element_text(face = "bold"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9)
+  )
+```
+
+Key Insights from the Graph Analysis:
+
+**1. Usage Patterns and Demographics:**
+Average daily social media usage among students is 4.92.
+The most popular platforms are Instagram, TikTok, Facebook.
+Females ages between 18 - 20 seems to use social media heavier than males.
+Our dataset is distributed evenly between females and males, and evenly spread between those in the relationship and being single.
+
+**2. Academic Impact:**
+Students with higher addiction score are only on the high school level, 
+whereas more educated ones seem to have lower addiction score and spending 
+less hours on their social media platforms.
+
+**3. Addiction score and Sleep:**
+There is a strong negative correlation between social media usage and mental health scores.
+Students with poor sleep quality (<5 hours) have significantly higher addiction scores.
+ 
+
+### Conclusion
+
+The analysis of social media addiction among students aged 18 to 24 reveals a strong correlation between daily usage and several well-being indicators, including mental health, sleep quality, relationships, and academic performance. Our findings show that increased social media use is associated with higher addiction scores, reduced sleep hours, and poorer mental health. Students who spend more time on social media tend to experience greater challenges with their mental well-being, academic success, and sleep habits.
+
+To support students' well-being and academic performance, we recommend setting daily usage limits, using app blockers during study times, maintaining healthy sleep routines by avoiding screens before bedtime, and staying mindful of how excessive use may affect relationships and academic outcomes.
+
+
+
+
+
+
+
+
+
+
+
+
+
